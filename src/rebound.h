@@ -289,6 +289,9 @@ struct reb_simulation_integrator_whfast512 {
     unsigned int recalculate_constants;
     struct reb_particle_avx512* p_jh;
     struct reb_particle p_jh0;
+    struct reb_particle p_jh02;
+    struct reb_particle p_jh03;
+    struct reb_particle p_jh04;
 };
 
 struct reb_ode{ // defines an ODE 

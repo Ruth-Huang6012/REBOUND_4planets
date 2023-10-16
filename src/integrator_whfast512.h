@@ -1,11 +1,10 @@
 /**
- * @file 	integrator_whfast612.h
- * @brief 	Interface for numerical particle integrator
- * @author 	Hanno Rein <hanno@hanno-rein.de>
- *          Pejvak Javaheri <pejvak.javaheri@mail.utoronto.ca>
+ * @file    rebound.h
+ * @brief   REBOUND API definition.
+ * @author  Hanno Rein <hanno@hanno-rein.de>
  * 
- * @section 	LICENSE
- * Copyright (c) 2023 Hanno Rein, Pejvak Javaheri
+ * @section     LICENSE
+ * Copyright (c) 2015 Hanno Rein, Shangfei Liu
  *
  * This file is part of rebound.
  *
@@ -23,11 +22,14 @@
  * along with rebound.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+
+
+
 #ifndef _INTEGRATOR_WHFAST512_H
 #define _INTEGRATOR_WHFAST512_H
 
 #include "rebound.h"
-
+struct reb_simulation* combine_simulations(struct reb_simulation * r1, struct reb_simulation * r2, struct reb_simulation * r3, struct reb_simulation * r4);
 void reb_integrator_whfast512_reset(struct reb_simulation* r);		
 void reb_integrator_whfast512_part1(struct reb_simulation* r);		///< Internal function used to call a specific integrator
 void reb_integrator_whfast512_part2(struct reb_simulation* r);		///< Internal function used to call a specific integrator
