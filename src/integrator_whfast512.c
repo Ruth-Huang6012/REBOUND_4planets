@@ -642,75 +642,81 @@ static void reb_whfast512_interaction_step_2planets(struct reb_simulation * r, d
 // Note: this is only called at the beginning. Speed is not a concern.
 static void inertial_to_democraticheliocentric_posvel(struct reb_simulation* r){
     struct reb_simulation_integrator_whfast512* const ri_whfast512 = &(r->ri_whfast512);
-    struct reb_particle_avx512* p512 = aligned_alloc(64,sizeof(struct reb_particle_avx512));
     struct reb_particle* particles = r->particles;
     struct reb_particle_avx512* p_jh = ri_whfast512->p_jh;
-    const unsigned int N = r->N;
     const unsigned int systems_N = ri_whfast512->systems_N;
     const unsigned int p_per_system = 8/ri_whfast512->systems_N;
     const unsigned int N_per_system = r->N/ri_whfast512->systems_N;
-    double val[8];
-#define CONVERT2AVX(x, p) \
-    for (unsigned s=0;s<systems_N;s++){\
-        for (unsigned int i=0;i<p_per_system;i++){\
-            val[s*p_per_system+i] = particles[s*N_per_system+(i+1)].x;\
-        }\
-    }\
-    for (unsigned int i=N;i<9;i++){\
-        if (p){\
-            val[i-1] = 100+i;\
-        }else{\
-            val[i-1] = 0.0;\
-        }\
-    }\
-    p512->x = _mm512_loadu_pd(&val);
 
-    CONVERT2AVX(m,0);
-    CONVERT2AVX(x, 1);
-    CONVERT2AVX(y, 1);
-    CONVERT2AVX(z, 1);
-    CONVERT2AVX(vx, 0);
-    CONVERT2AVX(vy, 0);
-    CONVERT2AVX(vz, 0 );
-
-    p_jh->m = p512->m; 
-    double mtot = _mm512_reduce_add_pd(p512->m) + particles[0].m;
-    ri_whfast512->p_jh0[0].m = mtot;
-
-    __m512d xm = _mm512_mul_pd(p512->x,p512->m);
-    double x0 = _mm512_reduce_add_pd(xm) + particles[0].m*particles[0].x;
-    ri_whfast512->p_jh0[0].x = x0/mtot;
-    __m512d ym = _mm512_mul_pd(p512->y,p512->m);
-    double y0 = _mm512_reduce_add_pd(ym) + particles[0].m*particles[0].y;
-    ri_whfast512->p_jh0[0].y = y0/mtot;
-    __m512d zm = _mm512_mul_pd(p512->z,p512->m);
-    double z0 = _mm512_reduce_add_pd(zm) + particles[0].m*particles[0].z;
-    ri_whfast512->p_jh0[0].z = z0/mtot;
+    // Layout (2x 3 planet systems)
+    //                    0    1  2  3   4    5  6  7
+    // particles array    star p0 p1 p2  star p0 p1 p2
+    // avx512 register    p0   p1 p2 NA  p0   p1 p2 NA
     
-    __m512d vxm = _mm512_mul_pd(p512->vx,p512->m);
-    double vx0 = (_mm512_reduce_add_pd(vxm) + particles[0].m*particles[0].vx)/mtot;
-    ri_whfast512->p_jh0[0].vx = vx0;
-    __m512d vym = _mm512_mul_pd(p512->vy,p512->m);
-    double vy0 = (_mm512_reduce_add_pd(vym) + particles[0].m*particles[0].vy)/mtot;
-    ri_whfast512->p_jh0[0].vy = vy0;
-    __m512d vzm = _mm512_mul_pd(p512->vz,p512->m);
-    double vz0 = (_mm512_reduce_add_pd(vzm) + particles[0].m*particles[0].vz)/mtot;
-    ri_whfast512->p_jh0[0].vz = vz0;
-   
-    xm = _mm512_set1_pd( particles[0].x);
-    p_jh->x = _mm512_sub_pd(p512->x, xm);
-    ym = _mm512_set1_pd( particles[0].y);
-    p_jh->y = _mm512_sub_pd(p512->y, ym);
-    zm = _mm512_set1_pd( particles[0].z);
-    p_jh->z = _mm512_sub_pd(p512->z, zm);
+    // Layout (4x 2 planet systems)
+    //                    0    1  2  3    4  5  6    7  8  9    10 11
+    // particles array    star p0 p1 star p0 p1 star p0 p1 star p0 p1
+    // avx512 register    p0   p1 p0 p1   p0 p1 p0   p1  
+
+    double m[8];
+    double x[8];
+    double y[8];
+    double z[8];
+    double vx[8];
+    double vy[8];
+    double vz[8];
+    for (unsigned s=0;s<systems_N;s++){
+        double mtot = 0;
+        double x0 = 0; // center of mass
+        double y0 = 0;
+        double z0 = 0;
+        double vx0 = 0;
+        double vy0 = 0;
+        double vz0 = 0;
+        for (unsigned int i=0; i<N_per_system; i++){
+            mtot += particles[s*N_per_system+i].m;
+            x0 += particles[s*N_per_system+i].x * particles[s*N_per_system+i].m;
+            y0 += particles[s*N_per_system+i].y * particles[s*N_per_system+i].m;
+            z0 += particles[s*N_per_system+i].z * particles[s*N_per_system+i].m;
+            vx0 += particles[s*N_per_system+i].vx * particles[s*N_per_system+i].m;
+            vy0 += particles[s*N_per_system+i].vy * particles[s*N_per_system+i].m;
+            vz0 += particles[s*N_per_system+i].vz * particles[s*N_per_system+i].m;
+        }
+        for (unsigned int i=0; i<p_per_system; i++){
+            m[s*p_per_system+i] = 0; // dummy
+            x[s*p_per_system+i] = 100.0+i; // dummy
+            y[s*p_per_system+i] = 100.0+i;
+            z[s*p_per_system+i] = 100.0+i;
+            vx[s*p_per_system+i] = 0.0;
+            vy[s*p_per_system+i] = 0.0;
+            vz[s*p_per_system+i] = 0.0;
+        }
+        ri_whfast512->p_jh0[s].m = mtot;
+        ri_whfast512->p_jh0[s].x = x0/mtot;
+        ri_whfast512->p_jh0[s].y = y0/mtot;
+        ri_whfast512->p_jh0[s].z = z0/mtot;
+        ri_whfast512->p_jh0[s].vx = vx0/mtot;
+        ri_whfast512->p_jh0[s].vy = vy0/mtot;
+        ri_whfast512->p_jh0[s].vz = vz0/mtot;
+        for (unsigned int i=1; i<N_per_system; i++){
+            m[s*p_per_system+(i-1)] = particles[s*N_per_system+i].m;
+            x[s*p_per_system+(i-1)] = particles[s*N_per_system+i].x - particles[s*N_per_system].x; // heliocentric
+            y[s*p_per_system+(i-1)] = particles[s*N_per_system+i].y - particles[s*N_per_system].y;
+            z[s*p_per_system+(i-1)] = particles[s*N_per_system+i].z - particles[s*N_per_system].z;
+            vx[s*p_per_system+(i-1)] = particles[s*N_per_system+i].vx - ri_whfast512->p_jh0[s].vx; // relative to com
+            vy[s*p_per_system+(i-1)] = particles[s*N_per_system+i].vy - ri_whfast512->p_jh0[s].vy;
+            vz[s*p_per_system+(i-1)] = particles[s*N_per_system+i].vz - ri_whfast512->p_jh0[s].vz;
+        }
+    }
     
-    vxm = _mm512_set1_pd( vx0);
-    p_jh->vx = _mm512_sub_pd(p512->vx, vxm);
-    vym = _mm512_set1_pd( vy0);
-    p_jh->vy = _mm512_sub_pd(p512->vy, vym);
-    vzm = _mm512_set1_pd( vz0);
-    p_jh->vz = _mm512_sub_pd(p512->vz, vzm);
-     
+    p_jh->m = _mm512_loadu_pd(m);
+    p_jh->x = _mm512_loadu_pd(x);
+    p_jh->y = _mm512_loadu_pd(y);
+    p_jh->z = _mm512_loadu_pd(z);
+    p_jh->vx = _mm512_loadu_pd(vx);
+    p_jh->vy = _mm512_loadu_pd(vy);
+    p_jh->vz = _mm512_loadu_pd(vz);
+
 }
 
 // Convert democratic heliocentric coordinates to inertial coordinates
@@ -875,7 +881,7 @@ void static recalculate_constants(struct reb_simulation* r){
         }
     }
 
-    _M = _mm512_set_pd(M[7],M[6],M[5],M[4],M[3],M[2],M[1],M[0]); 
+    _M = _mm512_loadu_pd(&M);
     so1 = _mm512_set_epi64(1,2,3,0,6,7,4,5);
     so2 = _mm512_set_epi64(3,2,1,0,6,5,4,7);
     for(unsigned int i=0;i<35;i++){
