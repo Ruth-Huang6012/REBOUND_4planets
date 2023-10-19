@@ -822,9 +822,11 @@ static void reb_whfast512_com_step(struct reb_simulation* r, const double _dt){
     struct timeval time_beginning;
     gettimeofday(&time_beginning,NULL);
 #endif
-    r->ri_whfast512.p_jh0[0].x += _dt*r->ri_whfast512.p_jh0[0].vx;
-    r->ri_whfast512.p_jh0[0].y += _dt*r->ri_whfast512.p_jh0[0].vy;
-    r->ri_whfast512.p_jh0[0].z += _dt*r->ri_whfast512.p_jh0[0].vz;
+    for (int s=0; s<r->ri_whfast512.systems_N; s++){
+        r->ri_whfast512.p_jh0[s].x += _dt*r->ri_whfast512.p_jh0[s].vx;
+        r->ri_whfast512.p_jh0[s].y += _dt*r->ri_whfast512.p_jh0[s].vy;
+        r->ri_whfast512.p_jh0[s].z += _dt*r->ri_whfast512.p_jh0[s].vz;
+    }
 #ifdef PROF
     struct timeval time_end;
     gettimeofday(&time_end,NULL);
