@@ -1038,6 +1038,10 @@ void reb_integrator_whfast512_synchronize(struct reb_simulation* const r){
       // Using WHFast as a workaround.
       // Not bit-wise reproducible. 
         struct reb_simulation_integrator_whfast* const ri_whfast = &(r->ri_whfast);
+        if (ri_whfast512->systems_N !=1){
+            reb_warning(r, "Synchronization using WHFast not implemented for systems_N != 1.");
+            return;
+        }
         reb_warning(r, "WHFast512 is not available. Synchronization is provided using WHFast and is not bit-compatible to WHFast512.");
         reb_integrator_whfast_init(r);
         ri_whfast->p_jh[0] = ri_whfast512->p_jh0[0];
