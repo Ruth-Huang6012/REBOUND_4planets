@@ -793,17 +793,32 @@ static void reb_whfast512_jump_step(struct reb_simulation* r, const double _dt){
     __m512d sumy = _mm512_mul_pd(p_jh->m, p_jh->vy);
     __m512d sumz = _mm512_mul_pd(p_jh->m, p_jh->vz);
 
-    sumx = _mm512_add_pd(_mm512_shuffle_pd(sumx, sumx, 0x55), sumx); // Swapping neighbouring elements
-    sumx = _mm512_add_pd(_mm512_permutex_pd(sumx, _MM_PERM_ABCD), sumx);
-    sumx = _mm512_add_pd(_mm512_shuffle_f64x2(sumx,sumx, shuffle_order), sumx);
+    if (ri_whfast512->systems_N == 1){
+        sumx = _mm512_add_pd(_mm512_shuffle_pd(sumx, sumx, 0x55), sumx); // Swapping neighbouring elements
+        sumx = _mm512_add_pd(_mm512_permutex_pd(sumx, _MM_PERM_ABCD), sumx);
+        sumx = _mm512_add_pd(_mm512_shuffle_f64x2(sumx,sumx, shuffle_order), sumx);
 
-    sumy = _mm512_add_pd(_mm512_shuffle_pd(sumy, sumy, 0x55), sumy);
-    sumy = _mm512_add_pd(_mm512_permutex_pd(sumy, _MM_PERM_ABCD), sumy);
-    sumy = _mm512_add_pd(_mm512_shuffle_f64x2(sumy,sumy, shuffle_order), sumy);
+        sumy = _mm512_add_pd(_mm512_shuffle_pd(sumy, sumy, 0x55), sumy);
+        sumy = _mm512_add_pd(_mm512_permutex_pd(sumy, _MM_PERM_ABCD), sumy);
+        sumy = _mm512_add_pd(_mm512_shuffle_f64x2(sumy,sumy, shuffle_order), sumy);
 
-    sumz = _mm512_add_pd(_mm512_shuffle_pd(sumz, sumz, 0x55), sumz);
-    sumz = _mm512_add_pd(_mm512_permutex_pd(sumz, _MM_PERM_ABCD), sumz);
-    sumz = _mm512_add_pd(_mm512_shuffle_f64x2(sumz,sumz, shuffle_order), sumz);
+        sumz = _mm512_add_pd(_mm512_shuffle_pd(sumz, sumz, 0x55), sumz);
+        sumz = _mm512_add_pd(_mm512_permutex_pd(sumz, _MM_PERM_ABCD), sumz);
+        sumz = _mm512_add_pd(_mm512_shuffle_f64x2(sumz,sumz, shuffle_order), sumz);
+    }else if (ri_whfast512->systems_N == 2){
+        sumx = _mm512_add_pd(_mm512_shuffle_pd(sumx, sumx, 0x55), sumx); // Swapping neighbouring elements
+        sumx = _mm512_add_pd(_mm512_permutex_pd(sumx, _MM_PERM_ABCD), sumx);
+
+        sumy = _mm512_add_pd(_mm512_shuffle_pd(sumy, sumy, 0x55), sumy);
+        sumy = _mm512_add_pd(_mm512_permutex_pd(sumy, _MM_PERM_ABCD), sumy);
+
+        sumz = _mm512_add_pd(_mm512_shuffle_pd(sumz, sumz, 0x55), sumz);
+        sumz = _mm512_add_pd(_mm512_permutex_pd(sumz, _MM_PERM_ABCD), sumz);
+    }else if (ri_whfast512->systems_N == 4){
+        sumx = _mm512_add_pd(_mm512_shuffle_pd(sumx, sumx, 0x55), sumx); // Swapping neighbouring elements
+        sumy = _mm512_add_pd(_mm512_shuffle_pd(sumy, sumy, 0x55), sumy);
+        sumz = _mm512_add_pd(_mm512_shuffle_pd(sumz, sumz, 0x55), sumz);
+    }
 
     p_jh->x = _mm512_fmadd_pd(sumx, pf512, p_jh->x); 
     p_jh->y = _mm512_fmadd_pd(sumy, pf512, p_jh->y); 
