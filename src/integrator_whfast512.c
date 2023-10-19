@@ -646,10 +646,15 @@ static void inertial_to_democraticheliocentric_posvel(struct reb_simulation* r){
     struct reb_particle* particles = r->particles;
     struct reb_particle_avx512* p_jh = ri_whfast512->p_jh;
     const unsigned int N = r->N;
+    const unsigned int systems_N = ri_whfast512->systems_N;
+    const unsigned int p_per_system = 8/ri_whfast512->systems_N;
+    const unsigned int N_per_system = r->N/ri_whfast512->systems_N;
     double val[8];
 #define CONVERT2AVX(x, p) \
-    for (unsigned int i=1;i<N;i++){\
-        val[i-1] = particles[i].x;\
+    for (unsigned s=0;s<systems_N;s++){\
+        for (unsigned int i=0;i<p_per_system;i++){\
+            val[s*p_per_system+i] = particles[s*N_per_system+(i+1)].x;\
+        }\
     }\
     for (unsigned int i=N;i<9;i++){\
         if (p){\
@@ -853,7 +858,7 @@ static void reb_whfast512_com_step(struct reb_simulation* r, const double _dt){
 void static recalculate_constants(struct reb_simulation* r){
     struct reb_simulation_integrator_whfast512* const ri_whfast512 = &(r->ri_whfast512);
     const unsigned int systems_N = ri_whfast512->systems_N;
-    const unsigned int N_per_system = r->N / systems_N;
+    const unsigned int p_per_system = 8 / systems_N;
     half = _mm512_set1_pd(0.5); 
     one = _mm512_add_pd(half, half); 
     two = _mm512_add_pd(one, one); 
@@ -865,8 +870,8 @@ void static recalculate_constants(struct reb_simulation* r){
         M[i] = r->particles[0].m; // for when N<8
     }
     for (int s=0; s<systems_N; s++){
-        for (int p=1; p<N_per_system; p++){ // loop over all planets
-            M[s*(N_per_system-1)+p] = r->particles[s*N_per_system].m;
+        for (int p=0; p<p_per_system; p++){ // loop over all planets
+            M[s*p_per_system+p] = r->particles[s*(r->N/systems_N)].m;
         }
     }
 
@@ -885,8 +890,8 @@ void static recalculate_constants(struct reb_simulation* r){
         _gr_prefac2[0] = 0; // for when N<8
     }
     for (int s=0; s<systems_N; s++){
-        for (int p=1; p<N_per_system; p++){
-            _gr_prefac2[s*(N_per_system-1)+p] = r->particles[s*N_per_system+p].m/r->particles[s*N_per_system].m;
+        for (int p=0; p<p_per_system; p++){
+            _gr_prefac2[s*p_per_system+p] = r->particles[s*(r->N/systems_N)+(p+1)].m/r->particles[s*(r->N/systems_N)].m;
         }
     }
     gr_prefac2 = _mm512_loadu_pd(&_gr_prefac2);
@@ -918,8 +923,18 @@ void reb_integrator_whfast512_part1(struct reb_simulation* const r){
             r->status = REB_EXIT_ERROR;
             return;
         }
-        if (r->N>9){
+        if (r->N>9 && ri_whfast512->systems_N == 1) {
             reb_error(r, "WHFast512 supports a maximum of 9 particles.");
+            r->status = REB_EXIT_ERROR;
+            return;
+        }
+        if (r->N>10 && ri_whfast512->systems_N == 2) {
+            reb_error(r, "WHFast512 supports a maximum of 10 particles when systems_N is set to 2.");
+            r->status = REB_EXIT_ERROR;
+            return;
+        }
+        if (r->N>12 && ri_whfast512->systems_N == 4) {
+            reb_error(r, "WHFast512 supports a maximum of 12 particles when systems_N is set to 4.");
             r->status = REB_EXIT_ERROR;
             return;
         }
