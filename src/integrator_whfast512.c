@@ -656,14 +656,25 @@ static void reb_whfast512_com_step(struct reb_simulation* r, const double _dt){
 // Precalculate various constants and put them in 512 bit vectors.
 void static recalculate_constants(struct reb_simulation* r){
     struct reb_simulation_integrator_whfast512* const ri_whfast512 = &(r->ri_whfast512);
-    const unsigned int N = r->N;
+    const unsigned int systems_N = ri_whfast512->systems_N;
+    const unsigned int N_per_system = r->N / systems_N;
     half = _mm512_set1_pd(0.5); 
     one = _mm512_add_pd(half, half); 
     two = _mm512_add_pd(one, one); 
     five = _mm512_set1_pd(5.); 
     sixteen = _mm512_set1_pd(16.); 
     twenty = _mm512_set1_pd(20.); 
-    _M = _mm512_set1_pd(r->particles[0].m); 
+    double M[8];
+    for (int i=0;i<8;i++){
+        M[i] = r->particles[0].m; // for when N<8
+    }
+    for (int s=0; s<systems_N; s++){
+        for (int p=1; p<N_per_system; p++){ // loop over all planets
+            M[s*(N_per_system-1)+p] = r->particles[s*N_per_system].m;
+        }
+    }
+
+    _M = _mm512_set_pd(M[7],M[6],M[5],M[4],M[3],M[2],M[1],M[0]); 
     so1 = _mm512_set_epi64(1,2,3,0,6,7,4,5);
     so2 = _mm512_set_epi64(3,2,1,0,6,5,4,7);
     for(unsigned int i=0;i<35;i++){
@@ -674,11 +685,13 @@ void static recalculate_constants(struct reb_simulation* r){
     double c = 10065.32;
     gr_prefac = _mm512_set1_pd(6.*r->particles[0].m*r->particles[0].m/(c*c));
     double _gr_prefac2[8];
-    for(unsigned int i=1;i<N;i++){
-        _gr_prefac2[i-1] = r->particles[i].m/r->particles[0].m;
+    for(unsigned int i=0;i<8;i++){
+        _gr_prefac2[0] = 0; // for when N<8
     }
-    for(unsigned int i=N;i<9;i++){
-        _gr_prefac2[i-1] = 0;
+    for (int s=0; s<systems_N; s++){
+        for (int p=1; p<N_per_system; p++){
+            _gr_prefac2[s*(N_per_system-1)+p] = r->particles[s*N_per_system+p].m/r->particles[s*N_per_system].m;
+        }
     }
     gr_prefac2 = _mm512_loadu_pd(&_gr_prefac2);
     ri_whfast512->recalculate_constants = 0;
@@ -716,6 +729,11 @@ void reb_integrator_whfast512_part1(struct reb_simulation* const r){
         }
         if (ri_whfast512->systems_N != 1 && ri_whfast512->systems_N !=2 && ri_whfast512->systems_N != 4){
             reb_error(r, "WHFast512 supports 1, 2, or 4 systems only.");
+            r->status = REB_EXIT_ERROR;
+            return;
+        }
+        if (r->N % ri_whfast512->systems_N != 0){
+            reb_error(r, "Number of particles must be a multiple of ri_whfast512.systems_N.");
             r->status = REB_EXIT_ERROR;
             return;
         }
