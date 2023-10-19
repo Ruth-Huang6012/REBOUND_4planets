@@ -187,8 +187,6 @@ int test_systems_N(int systems_N, int planets){
     return 1;
 }
 
-
-
 int test_com(){
     struct reb_simulation* r512 = setup_sim(9);
      

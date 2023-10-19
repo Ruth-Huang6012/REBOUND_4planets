@@ -644,8 +644,8 @@ static void inertial_to_democraticheliocentric_posvel(struct reb_simulation* r){
     struct reb_simulation_integrator_whfast512* const ri_whfast512 = &(r->ri_whfast512);
     struct reb_particle* particles = r->particles;
     const unsigned int systems_N = ri_whfast512->systems_N;
-    const unsigned int p_per_system = 8/ri_whfast512->systems_N;
-    const unsigned int N_per_system = r->N/ri_whfast512->systems_N;
+    const unsigned int p_per_system = 8/systems_N;
+    const unsigned int N_per_system = r->N/systems_N;
 
     // Layout (2x 3 planet systems)
     //                    0    1  2  3   4    5  6  7
@@ -726,8 +726,8 @@ static void democraticheliocentric_to_inertial_posvel(struct reb_simulation* r){
     struct reb_particle* particles = r->particles;
     struct reb_particle_avx512* p_jh = ri_whfast512->p_jh;
     const unsigned int systems_N = ri_whfast512->systems_N;
-    const unsigned int p_per_system = 8/ri_whfast512->systems_N;
-    const unsigned int N_per_system = r->N/ri_whfast512->systems_N;
+    const unsigned int p_per_system = 8/systems_N;
+    const unsigned int N_per_system = r->N/systems_N;
     
     double m[8];
     double x[8];
@@ -856,7 +856,8 @@ static void reb_whfast512_com_step(struct reb_simulation* r, const double _dt){
 void static recalculate_constants(struct reb_simulation* r){
     struct reb_simulation_integrator_whfast512* const ri_whfast512 = &(r->ri_whfast512);
     const unsigned int systems_N = ri_whfast512->systems_N;
-    const unsigned int p_per_system = 8 / systems_N;
+    const unsigned int p_per_system = 8/systems_N;
+    const unsigned int N_per_system = r->N/systems_N;
     half = _mm512_set1_pd(0.5); 
     one = _mm512_add_pd(half, half); 
     two = _mm512_add_pd(one, one); 
@@ -869,7 +870,7 @@ void static recalculate_constants(struct reb_simulation* r){
     }
     for (int s=0; s<systems_N; s++){
         for (int p=0; p<p_per_system; p++){ // loop over all planets
-            M[s*p_per_system+p] = r->particles[s*(r->N/systems_N)].m;
+            M[s*p_per_system+p] = r->particles[s*N_per_system].m;
         }
     }
 
@@ -882,16 +883,20 @@ void static recalculate_constants(struct reb_simulation* r){
 
     // GR prefactors. Note: assumes units of AU, year/2pi.
     double c = 10065.32;
-    gr_prefac = _mm512_set1_pd(6.*r->particles[0].m*r->particles[0].m/(c*c));
+    double _gr_prefac[8];
     double _gr_prefac2[8];
     for(unsigned int i=0;i<8;i++){
-        _gr_prefac2[0] = 0; // for when N<8
+        _gr_prefac[0] = 0; // for when N<8
+        _gr_prefac2[0] = 0;
     }
     for (int s=0; s<systems_N; s++){
         for (int p=0; p<p_per_system; p++){
-            _gr_prefac2[s*p_per_system+p] = r->particles[s*(r->N/systems_N)+(p+1)].m/r->particles[s*(r->N/systems_N)].m;
+            double m0 = r->particles[s*N_per_system].m;
+            _gr_prefac[s*p_per_system+p] = 6.*m0*m0/(c*c);
+            _gr_prefac2[s*p_per_system+p] = r->particles[s*N_per_system+(p+1)].m/m0;
         }
     }
+    gr_prefac = _mm512_loadu_pd(&_gr_prefac);
     gr_prefac2 = _mm512_loadu_pd(&_gr_prefac2);
     ri_whfast512->recalculate_constants = 0;
 
