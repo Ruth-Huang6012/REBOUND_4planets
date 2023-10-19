@@ -714,6 +714,11 @@ void reb_integrator_whfast512_part1(struct reb_simulation* const r){
             r->status = REB_EXIT_ERROR;
             return;
         }
+        if (ri_whfast512->systems_N != 1 && ri_whfast512->systems_N !=2 && ri_whfast512->systems_N != 4){
+            reb_error(r, "WHFast512 supports 1, 2, or 4 systems only.");
+            r->status = REB_EXIT_ERROR;
+            return;
+        }
         if (r->G!=1.0){
             reb_error(r, "WHFast512 requires units in which G=1. Please rescale your system.");
             r->status = REB_EXIT_ERROR;
