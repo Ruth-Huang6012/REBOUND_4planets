@@ -50,7 +50,7 @@ double all_ss_mass[9] = {
     5.151383772628957e-05
 };
 
-struct reb_simulation* setup_sim(){
+struct reb_simulation* setup_sim(int N){
     struct reb_simulation* r = reb_create_simulation();
     // Setup constants
     r->dt = 4.0/365.25*2*M_PI; //6 days
@@ -59,7 +59,7 @@ struct reb_simulation* setup_sim(){
     r->force_is_velocity_dependent = 0; 
     
     // Initial conditions
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < N; i++) {
         struct reb_particle p = {0};
         p.x = all_ss_pos[i][0];
         p.y = all_ss_pos[i][1];
@@ -97,7 +97,7 @@ void gr_force(struct reb_simulation* r){
 }
 
 int test_basic(){
-    struct reb_simulation* r = setup_sim();
+    struct reb_simulation* r = setup_sim(9);
     struct reb_simulation* r512 = reb_copy_simulation(r);
      
     r512->integrator = REB_INTEGRATOR_WHFAST512;
@@ -123,9 +123,40 @@ int test_basic(){
     return 1;
 }
 
+int test_number_of_planets(){
+    // Different numbers of planets
+    for (int p=1; p<=9; p++){
+        struct reb_simulation* r = setup_sim(9);
+        struct reb_simulation* r512 = reb_copy_simulation(r);
+         
+        r512->integrator = REB_INTEGRATOR_WHFAST512;
+        r512->ri_whfast512.gr_potential = 0;
+        r->integrator = REB_INTEGRATOR_WHFAST;
+        r->ri_whfast.coordinates = REB_WHFAST_COORDINATES_DEMOCRATICHELIOCENTRIC;
+        r->ri_whfast.safe_mode = 0;
+
+        double tmax = 1e2;
+        if (reb_integrate(r, tmax)>0) return 0;
+        if (reb_integrate(r512, tmax)>0) return 0;
+
+        for (int i=0;i<r->N;i++){
+            if (fabs(r->particles[i].x - r512->particles[i].x)>1e-11){
+                printf("Accuracy not met in GR test with %d particles.\n", p);
+                printf("%.16e\n",fabs(r->particles[i].x - r512->particles[i].x));
+                return 0;
+            }
+        }
+
+        reb_free_simulation(r);
+        reb_free_simulation(r512);
+    }
+    return 1;
+}
+
+
 
 int test_com(){
-    struct reb_simulation* r512 = setup_sim();
+    struct reb_simulation* r512 = setup_sim(9);
      
     r512->integrator = REB_INTEGRATOR_WHFAST512;
     r512->ri_whfast512.gr_potential = 0;
@@ -161,7 +192,7 @@ int test_twobody(){
 }
 
 int test_gr(){
-    struct reb_simulation* r = setup_sim();
+    struct reb_simulation* r = setup_sim(9);
     struct reb_simulation* r512 = reb_copy_simulation(r);
      
     r512->integrator = REB_INTEGRATOR_WHFAST512;
@@ -189,7 +220,7 @@ int test_gr(){
 }
 
 int test_restart(){
-    struct reb_simulation* r512 = setup_sim();
+    struct reb_simulation* r512 = setup_sim(9);
     r512->integrator = REB_INTEGRATOR_WHFAST512;
     r512->exact_finish_time = 0;
     r512->ri_whfast512.gr_potential = 1;
@@ -231,6 +262,7 @@ int test_restart(){
 
 int main(int argc, char* argv[]) {
     assert(test_basic());
+    assert(test_number_of_planets());
     assert(test_restart());
     assert(test_com());
     assert(test_twobody());
