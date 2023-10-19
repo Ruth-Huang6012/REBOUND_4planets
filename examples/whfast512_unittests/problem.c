@@ -153,6 +153,40 @@ int test_number_of_planets(){
     return 1;
 }
 
+int test_systems_N(int systems_N, int planets){
+    for (int gr=0; gr<=1; gr++){
+        struct reb_simulation* r_single = setup_sim(planets+1);
+        r_single->integrator = REB_INTEGRATOR_WHFAST512;
+        r_single->ri_whfast512.gr_potential = gr;
+        struct reb_simulation* r_many = reb_copy_simulation(r_single);
+        r_many->ri_whfast512.systems_N = systems_N;
+        for (int i=1; i<systems_N; i++){
+            for (int j=0; j<r_single->N; j++){
+                reb_add(r_many, r_single->particles[j]);
+            }
+        }
+         
+        double tmax = 1e2;
+        if (reb_integrate(r_single, tmax)>0) return 0;
+        if (reb_integrate(r_many, tmax)>0) return 0;
+       
+        assert(r_single->t == r_many->t);
+        assert(systems_N*r_single->N == r_many->N);
+
+        for (int i=0; i<systems_N; i++){
+            for (int j=0; j<r_single->N; j++){
+                int equal = r_single->particles[j].x == r_many->particles[r_single->N*i+j].x;
+                if (! equal){
+                    printf("Simulation with systems_N>1 not giving same results as simulation with systems_N=1 (gr=%d).\n", gr);
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return 1;
+}
+
 
 
 int test_com(){
@@ -263,6 +297,12 @@ int test_restart(){
 int main(int argc, char* argv[]) {
     assert(test_basic());
     assert(test_number_of_planets());
+    assert(test_systems_N(2,1));
+    assert(test_systems_N(2,2));
+    assert(test_systems_N(2,3));
+    assert(test_systems_N(2,4));
+    assert(test_systems_N(4,1));
+    assert(test_systems_N(4,2));
     assert(test_restart());
     assert(test_com());
     assert(test_twobody());
