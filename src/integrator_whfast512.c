@@ -491,27 +491,27 @@ static void inertial_to_democraticheliocentric_posvel(struct reb_simulation* r){
 
     p_jh->m = p512->m; 
     double mtot = _mm512_reduce_add_pd(p512->m) + particles[0].m;
-    ri_whfast512->p_jh0.m = mtot;
+    ri_whfast512->p_jh0[0].m = mtot;
 
     __m512d xm = _mm512_mul_pd(p512->x,p512->m);
     double x0 = _mm512_reduce_add_pd(xm) + particles[0].m*particles[0].x;
-    ri_whfast512->p_jh0.x = x0/mtot;
+    ri_whfast512->p_jh0[0].x = x0/mtot;
     __m512d ym = _mm512_mul_pd(p512->y,p512->m);
     double y0 = _mm512_reduce_add_pd(ym) + particles[0].m*particles[0].y;
-    ri_whfast512->p_jh0.y = y0/mtot;
+    ri_whfast512->p_jh0[0].y = y0/mtot;
     __m512d zm = _mm512_mul_pd(p512->z,p512->m);
     double z0 = _mm512_reduce_add_pd(zm) + particles[0].m*particles[0].z;
-    ri_whfast512->p_jh0.z = z0/mtot;
+    ri_whfast512->p_jh0[0].z = z0/mtot;
     
     __m512d vxm = _mm512_mul_pd(p512->vx,p512->m);
     double vx0 = (_mm512_reduce_add_pd(vxm) + particles[0].m*particles[0].vx)/mtot;
-    ri_whfast512->p_jh0.vx = vx0;
+    ri_whfast512->p_jh0[0].vx = vx0;
     __m512d vym = _mm512_mul_pd(p512->vy,p512->m);
     double vy0 = (_mm512_reduce_add_pd(vym) + particles[0].m*particles[0].vy)/mtot;
-    ri_whfast512->p_jh0.vy = vy0;
+    ri_whfast512->p_jh0[0].vy = vy0;
     __m512d vzm = _mm512_mul_pd(p512->vz,p512->m);
     double vz0 = (_mm512_reduce_add_pd(vzm) + particles[0].m*particles[0].vz)/mtot;
-    ri_whfast512->p_jh0.vz = vz0;
+    ri_whfast512->p_jh0[0].vz = vz0;
    
     xm = _mm512_set1_pd( particles[0].x);
     p_jh->x = _mm512_sub_pd(p512->x, xm);
@@ -536,7 +536,7 @@ static void democraticheliocentric_to_inertial_posvel(struct reb_simulation* r){
     struct reb_particle* particles = r->particles;
     struct reb_particle_avx512* p512 = aligned_alloc(64,sizeof(struct reb_particle_avx512));
     struct reb_particle_avx512* p_jh = ri_whfast512->p_jh;
-    const double mtot = ri_whfast512->p_jh0.m;
+    const double mtot = ri_whfast512->p_jh0[0].m;
     const unsigned int N = r->N;
     
     __m512d x0 = _mm512_mul_pd(p_jh->x,p_jh->m);
@@ -546,9 +546,9 @@ static void democraticheliocentric_to_inertial_posvel(struct reb_simulation* r){
     __m512d z0 = _mm512_mul_pd(p_jh->z,p_jh->m);
     double z0s = _mm512_reduce_add_pd(z0)/mtot;
 
-    particles[0].x  = ri_whfast512->p_jh0.x - x0s;
-    particles[0].y  = ri_whfast512->p_jh0.y - y0s;
-    particles[0].z  = ri_whfast512->p_jh0.z - z0s;
+    particles[0].x  = ri_whfast512->p_jh0[0].x - x0s;
+    particles[0].y  = ri_whfast512->p_jh0[0].y - y0s;
+    particles[0].z  = ri_whfast512->p_jh0[0].z - z0s;
     
     
     x0 = _mm512_set1_pd( particles[0].x);
@@ -558,11 +558,11 @@ static void democraticheliocentric_to_inertial_posvel(struct reb_simulation* r){
     z0 = _mm512_set1_pd( particles[0].z);
     p512->z = _mm512_add_pd(p_jh->z, z0);
     
-    __m512d vx0 = _mm512_set1_pd( ri_whfast512->p_jh0.vx);
+    __m512d vx0 = _mm512_set1_pd( ri_whfast512->p_jh0[0].vx);
     p512->vx = _mm512_add_pd(p_jh->vx, vx0);
-    __m512d vy0 = _mm512_set1_pd( ri_whfast512->p_jh0.vy);
+    __m512d vy0 = _mm512_set1_pd( ri_whfast512->p_jh0[0].vy);
     p512->vy = _mm512_add_pd(p_jh->vy, vy0);
-    __m512d vz0 = _mm512_set1_pd( ri_whfast512->p_jh0.vz);
+    __m512d vz0 = _mm512_set1_pd( ri_whfast512->p_jh0[0].vz);
     p512->vz = _mm512_add_pd(p_jh->vz, vz0);
 
     const double m0 = particles[0].m;
@@ -575,9 +575,9 @@ static void democraticheliocentric_to_inertial_posvel(struct reb_simulation* r){
     double vz0s = _mm512_reduce_add_pd(vz0)/m0;
 
     
-    particles[0].vx = ri_whfast512->p_jh0.vx -vx0s;
-    particles[0].vy = ri_whfast512->p_jh0.vy -vy0s;
-    particles[0].vz = ri_whfast512->p_jh0.vz -vz0s;
+    particles[0].vx = ri_whfast512->p_jh0[0].vx -vx0s;
+    particles[0].vy = ri_whfast512->p_jh0[0].vy -vy0s;
+    particles[0].vz = ri_whfast512->p_jh0[0].vz -vz0s;
 
     // Only called at the end. Speed is not a concern.
 
@@ -643,9 +643,9 @@ static void reb_whfast512_com_step(struct reb_simulation* r, const double _dt){
     struct timeval time_beginning;
     gettimeofday(&time_beginning,NULL);
 #endif
-    r->ri_whfast512.p_jh0.x += _dt*r->ri_whfast512.p_jh0.vx;
-    r->ri_whfast512.p_jh0.y += _dt*r->ri_whfast512.p_jh0.vy;
-    r->ri_whfast512.p_jh0.z += _dt*r->ri_whfast512.p_jh0.vz;
+    r->ri_whfast512.p_jh0[0].x += _dt*r->ri_whfast512.p_jh0[0].vx;
+    r->ri_whfast512.p_jh0[0].y += _dt*r->ri_whfast512.p_jh0[0].vy;
+    r->ri_whfast512.p_jh0[0].z += _dt*r->ri_whfast512.p_jh0[0].vz;
 #ifdef PROF
     struct timeval time_end;
     gettimeofday(&time_end,NULL);
@@ -796,14 +796,14 @@ void reb_integrator_whfast512_synchronize(struct reb_simulation* const r){
         if (ri_whfast512->keep_unsynchronized){
             sync_pj = aligned_alloc(64,sizeof(struct reb_particle_avx512));
             memcpy(sync_pj,ri_whfast512->p_jh, sizeof(struct reb_particle_avx512));
-            sync_pj0 = ri_whfast512->p_jh0;
+            sync_pj0 = ri_whfast512->p_jh0[0];
         }
         reb_whfast512_kepler_step(r, r->dt/2.);    
         reb_whfast512_com_step(r, r->dt/2.);
         democraticheliocentric_to_inertial_posvel(r);
         if (ri_whfast512->keep_unsynchronized){
             memcpy(ri_whfast512->p_jh, sync_pj, sizeof(struct reb_particle_avx512));
-            ri_whfast512->p_jh0 = sync_pj0;
+            ri_whfast512->p_jh0[0] = sync_pj0;
             free(sync_pj);
         }else{
             ri_whfast512->is_synchronized = 1;
@@ -814,7 +814,7 @@ void reb_integrator_whfast512_synchronize(struct reb_simulation* const r){
         struct reb_simulation_integrator_whfast* const ri_whfast = &(r->ri_whfast);
         reb_warning(r, "WHFast512 is not available. Synchronization is provided using WHFast and is not bit-compatible to WHFast512.");
         reb_integrator_whfast_init(r);
-        ri_whfast->p_jh[0] = ri_whfast512->p_jh0;
+        ri_whfast->p_jh[0] = ri_whfast512->p_jh0[0];
         for (unsigned int i=1;i<r->N;i++){
             ri_whfast->p_jh[i].m = ri_whfast512->p_jh->m[i-1];
             ri_whfast->p_jh[i].x = ri_whfast512->p_jh->x[i-1];
