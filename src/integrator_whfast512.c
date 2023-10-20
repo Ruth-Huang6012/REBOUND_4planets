@@ -787,9 +787,11 @@ static void reb_whfast512_jump_step(struct reb_simulation* r, const double _dt){
 #endif
     struct reb_simulation_integrator_whfast512* ri_whfast512 = &(r->ri_whfast512);
     struct reb_particle_avx512* p_jh = ri_whfast512->p_jh;
-    double m0 = r->particles[0].m;
+    //double m0 = r->particles[0].m;
     
-    __m512d pf512 = _mm512_set1_pd(_dt/m0);
+    __m512d ts = _mm512_set1_pd(_dt);
+
+    __m512d pf512 = _mm512_div_pd(ts, _M);
     const int shuffle_order = _MM_SHUFFLE(1,0,3,2);
     
     __m512d sumx = _mm512_mul_pd(p_jh->m, p_jh->vx);
@@ -886,14 +888,16 @@ void static recalculate_constants(struct reb_simulation* r){
     double _gr_prefac[8];
     double _gr_prefac2[8];
     for(unsigned int i=0;i<8;i++){
-        _gr_prefac[0] = 0; // for when N<8
-        _gr_prefac2[0] = 0;
+        _gr_prefac[i] = 0; // for when N<8
+        _gr_prefac2[i] = 0;
     }
     for (int s=0; s<systems_N; s++){
         for (int p=0; p<p_per_system; p++){
             double m0 = r->particles[s*N_per_system].m;
             _gr_prefac[s*p_per_system+p] = 6.*m0*m0/(c*c);
-            _gr_prefac2[s*p_per_system+p] = r->particles[s*N_per_system+(p+1)].m/m0;
+	    if (p+1 < N_per_system){
+	    _gr_prefac2[s*p_per_system+p] = r->particles[s*N_per_system+(p+1)].m/m0;
+	    };
         }
     }
     gr_prefac = _mm512_loadu_pd(&_gr_prefac);
